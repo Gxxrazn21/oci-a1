@@ -82,7 +82,8 @@ for ((i = 1; i <= INTENTOS; i++)); do
   restantes=()
   for n in "${pendientes[@]}"; do
     echo "Intento $i/$INTENTOS: creando $n (${OCPUS} OCPU, ${MEMORIA_GB} GB)..."
-    salida=$(oci compute instance launch \
+    # --no-retry: sin esto OCI CLI reintenta solo los "sin capacidad" y cada intento tarda minutos
+    salida=$(oci --no-retry compute instance launch \
       --availability-domain "$AD" -c "$TENANCY" \
       --shape VM.Standard.A1.Flex \
       --shape-config "{\"ocpus\": $OCPUS, \"memoryInGBs\": $MEMORIA_GB}" \
