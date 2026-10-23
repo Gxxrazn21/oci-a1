@@ -1,13 +1,21 @@
 name: Crear instancias A1 en Oracle
 
+# Cada ejecucion intenta durante ~25 minutos (un intento por minuto) y al
+# terminar lanza la siguiente. El cron de GitHub es poco confiable (puede
+# saltarse horas), asi que solo queda de respaldo por si la cadena se corta.
 on:
   schedule:
-    - cron: '*/10 * * * *'   # cada 10 minutos (GitHub puede retrasarlo un poco)
-  workflow_dispatch:          # boton "Run workflow" para correrlo a mano
+    - cron: '17 * * * *'      # respaldo: una vez por hora
+  workflow_dispatch:
+    inputs:
+      intentos:
+        description: 'Intentos en esta ejecucion (uno por minuto)'
+        required: false
+        default: '25'
 
 permissions:
   contents: read
-  actions: write              # para apagar el workflow cuando termine
+  actions: write              # para lanzar la siguiente ejecucion y apagar el workflow
 
 concurrency:
   group: crear-a1
@@ -16,7 +24,7 @@ concurrency:
 jobs:
   crear:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -52,7 +60,15 @@ jobs:
           NOMBRES: 'MiTv Alexa'
           OCPUS: '2'
           MEMORIA_GB: '12'
+          INTENTOS: ${{ inputs.intentos || '25' }}
+          ESPERA: '60'
         run: bash crear-a1.sh
+
+      - name: Lanzar la siguiente ejecucion
+        if: success() && steps.crear.outputs.terminado != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run crear-a1.yml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}"
 
       - name: Apagar este workflow (terminado o error de configuracion)
         if: always() && (steps.crear.outputs.terminado == '1' || steps.crear.outputs.pausar == '1')
