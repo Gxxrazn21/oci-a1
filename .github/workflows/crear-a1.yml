@@ -1,0 +1,61 @@
+name: Crear instancias A1 en Oracle
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # cada 10 minutos (GitHub puede retrasarlo un poco)
+  workflow_dispatch:          # boton "Run workflow" para correrlo a mano
+
+permissions:
+  contents: read
+  actions: write              # para apagar el workflow cuando termine
+
+concurrency:
+  group: crear-a1
+  cancel-in-progress: false
+
+jobs:
+  crear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar OCI CLI
+        run: pipx install oci-cli
+
+      - name: Configurar credenciales
+        env:
+          OCI_USER: ${{ secrets.OCI_USER }}
+          OCI_TENANCY: ${{ secrets.OCI_TENANCY }}
+          OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_KEY: ${{ secrets.OCI_KEY }}
+          SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
+        run: |
+          mkdir -p ~/.oci ~/.ssh
+          printf '%s\n' "$OCI_KEY" > ~/.oci/oci_api_key.pem
+          printf '%s\n' "$SSH_PUBLIC_KEY" > ~/.ssh/id_instancias.pub
+          cat > ~/.oci/config <<EOF
+          [DEFAULT]
+          user=$OCI_USER
+          fingerprint=$OCI_FINGERPRINT
+          tenancy=$OCI_TENANCY
+          region=sa-bogota-1
+          key_file=~/.oci/oci_api_key.pem
+          EOF
+          chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
+
+      - name: Intentar crear las instancias
+        id: crear
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NOMBRES: 'MiTv Alexa'
+          OCPUS: '2'
+          MEMORIA_GB: '12'
+        run: bash crear-a1.sh
+
+      - name: Apagar este workflow cuando ya esten todas
+        if: steps.crear.outputs.terminado == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow disable crear-a1.yml --repo "${{ github.repository }}"
