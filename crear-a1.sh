@@ -47,6 +47,20 @@ esperar_ip() {
   echo "(aun sin IP, revisala en la consola)"
 }
 
+# --- Tope Always Free ---------------------------------------------------------
+# Gratis para siempre: 4 OCPU y 24 GB de RAM sumando todas las A1, y 200 GB de
+# disco en total. Si la configuracion se pasa, no se crea nada.
+
+total_ocpu=$(( OCPUS * ${#NOMBRES[@]} ))
+total_memoria=$(( MEMORIA_GB * ${#NOMBRES[@]} ))
+total_disco=$(( DISCO_GB * ${#NOMBRES[@]} ))
+if (( total_ocpu > 4 || total_memoria > 24 || total_disco > 200 )); then
+  avisar "⚠️ Oracle: la configuracion se pasa de lo gratis (${total_ocpu} OCPU, ${total_memoria} GB RAM, ${total_disco} GB disco; el maximo es 4 OCPU, 24 GB y 200 GB). No cree nada y pause la busqueda."
+  [ -n "${GITHUB_OUTPUT:-}" ] && echo "pausar=1" >> "$GITHUB_OUTPUT"
+  exit 1
+fi
+echo "Total a crear: ${total_ocpu} OCPU, ${total_memoria} GB RAM, ${total_disco} GB disco (dentro de lo gratis)."
+
 # --- Datos de la cuenta -------------------------------------------------------
 
 TENANCY=$(awk -F= '/^tenancy/{print $2}' ~/.oci/config | tr -d '[:space:]')
