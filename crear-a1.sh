@@ -107,9 +107,15 @@ Entra con: ssh -i <tu-llave.key> opc@$ip"
       avisar "⚠️ Oracle: se alcanzo un limite de la cuenta creando $n. Reviso manualmente.
 $(head -c 600 <<< "$salida")"
       exit 1
+    elif grep -qE '"status": 4[0-9]{2}' <<< "$salida"; then
+      # Error de configuracion (llave, permisos, parametros): reintentar no sirve
+      avisar "❌ Oracle rechazo la solicitud para $n. Pause la busqueda automatica; corrige y vuelve a activar el workflow.
+$(grep -E '"(code|message)"' <<< "$salida")"
+      [ -n "${GITHUB_OUTPUT:-}" ] && echo "pausar=1" >> "$GITHUB_OUTPUT"
+      exit 1
     else
-      avisar "❌ Oracle: error inesperado creando $n:
-$(head -c 600 <<< "$salida")"
+      echo "Error temporal creando $n, se reintenta:"
+      head -c 600 <<< "$salida"
       restantes+=("$n")
     fi
   done
@@ -123,4 +129,4 @@ if [ ${#pendientes[@]} -eq 0 ]; then
   avisar "🎉 Oracle: ya estan creadas todas (${NOMBRES[*]}). Apago la busqueda automatica."
   terminar
 fi
-echo "Siguen sin capacidad: ${pendientes[*]}. Se reintenta en la proxima ejecucion."
+echo "Siguen pendientes: ${pendientes[*]}. Se reintenta en la proxima ejecucion."

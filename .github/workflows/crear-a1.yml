@@ -54,8 +54,8 @@ jobs:
           MEMORIA_GB: '12'
         run: bash crear-a1.sh
 
-      - name: Apagar este workflow cuando ya esten todas
-        if: steps.crear.outputs.terminado == '1'
+      - name: Apagar este workflow (terminado o error de configuracion)
+        if: always() && (steps.crear.outputs.terminado == '1' || steps.crear.outputs.pausar == '1')
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow disable crear-a1.yml --repo "${{ github.repository }}"
